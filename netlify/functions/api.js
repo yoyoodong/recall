@@ -43,11 +43,11 @@ export default async function handler(req, context) {
     }
 
     if (req.method === "GET" && pathname === "/api/auth/start") {
-      return startAuth(url, origin);
+      return await startAuth(url, origin);
     }
 
     if (req.method === "GET" && pathname === "/api/auth/callback") {
-      return finishAuth(url, origin);
+      return await finishAuth(url, origin);
     }
 
     if (req.method === "GET" && pathname === "/api/me") {
@@ -68,11 +68,25 @@ export default async function handler(req, context) {
     }
 
     if (req.method === "GET" && pathname === "/read") {
-      return markReadAndRedirect(url, origin);
+      return await markReadAndRedirect(url, origin);
     }
 
     return json({ ok: false, error: "Not found" }, 404, origin);
   } catch (error) {
+    console.error("Recall function error", {
+      message: error.message,
+      status: error.status,
+      code: error.code,
+      details: error.details
+    });
+    try {
+      const url = new URL(req.url);
+      if (url.pathname === "/api/auth/callback") {
+        return htmlError(error);
+      }
+    } catch {
+      // Fall through to JSON error response.
+    }
     return json({
       ok: false,
       error: error.message || "Server error",
@@ -383,7 +397,13 @@ function redirectToExtension(extensionRedirectUri, sessionToken, baseUrl) {
     recall_token: sessionToken,
     base_url: baseUrl || ""
   }).toString();
-  return Response.redirect(redirect.toString(), 302);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: redirect.toString(),
+      "Cache-Control": "no-store"
+    }
+  });
 }
 
 async function feishuFetch(url, options = {}) {
@@ -398,6 +418,12 @@ async function feishuFetch(url, options = {}) {
   if (!response.ok || data.code) {
     const error = httpError(502, data.msg || data.error_description || `Feishu API failed with HTTP ${response.status}`);
     error.code = data.code || response.status;
+    error.details = {
+      feishuCode: data.code,
+      feishuMsg: data.msg,
+      requestId: data.request_id,
+      url: String(url)
+    };
     throw error;
   }
   return data;
@@ -595,4 +621,58 @@ function withCors(response, origin) {
   headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   headers.set("Access-Control-Allow-Headers", "Authorization,Content-Type");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+function htmlError(error) {
+  const status = error.status || 500;
+  const title = status >= 500 ? "连接飞书时后端出错" : "连接飞书失败";
+  const details = [
+    error.message || "Server error",
+    error.code ? `错误码：${error.code}` : "",
+    error.details?.feishuCode ? `飞书错误码：${error.details.feishuCode}` : "",
+    error.details?.feishuMsg ? `飞书信息：${error.details.feishuMsg}` : "",
+    error.details?.requestId ? `飞书 request_id：${error.details.requestId}` : ""
+  ].filter(Boolean);
+  const escapedDetails = details.map(escapeHtml);
+  return new Response(`<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f8fb;color:#172033}
+      main{width:min(760px,calc(100vw - 40px));background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;box-shadow:0 18px 48px rgba(18,28,45,.08)}
+      h1{margin:0 0 12px;font-size:28px;letter-spacing:0}
+      p{margin:8px 0;color:#4b5565;line-height:1.7}
+      pre{white-space:pre-wrap;word-break:break-word;background:#f3f4f6;border-radius:8px;padding:16px;color:#111827}
+      .hint{margin-top:20px;padding-top:18px;border-top:1px solid #e5e7eb}
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>${escapeHtml(title)}</h1>
+      <p>这说明飞书已经回调到 Recall 后端，但后端在换取 token、创建资料表或跳回插件时遇到了问题。</p>
+      <pre>${escapedDetails.join("\n") || "未知错误"}</pre>
+      <div class="hint">
+        <p>请回到 Recall 插件设置页，重新点击“连接飞书”。如果仍失败，把这一页的错误信息发给开发者。</p>
+      </div>
+    </main>
+  </body>
+</html>`, {
+    status,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store"
+    }
+  });
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
