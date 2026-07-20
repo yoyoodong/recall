@@ -1,5 +1,5 @@
 const DEFAULT_CONFIG = {
-  apiBaseUrl: "https://recall-api.example.com",
+  apiBaseUrl: "https://xrecall.netlify.app",
   sessionToken: "",
   baseUrl: ""
 };
