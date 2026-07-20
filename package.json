@@ -7,10 +7,13 @@
     "server": "node server/index.js",
     "server:public": "node backend-public/server.js",
     "check": "node --check server/index.js && node --check extension/background.js && node --check extension/popup.js && node --check extension/options.js",
-    "check:public": "node --check backend-public/server.js && node --check extension-public/background.js && node --check extension-public/options.js"
+    "check:public": "node --check backend-public/server.js && node --check netlify/functions/api.js && node --check extension-public/background.js && node --check extension-public/options.js"
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^10.7.9"
   },
   "devDependencies": {
     "netlify": "^26.2.0"

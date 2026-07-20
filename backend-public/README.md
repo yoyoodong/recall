@@ -15,13 +15,13 @@ This backend is the cloud replacement for the local `127.0.0.1` helper.
 ## Required Environment Variables
 
 ```bash
-PUBLIC_BASE_URL=https://recall-api.example.com
+PUBLIC_BASE_URL=https://your-netlify-site.netlify.app
 FEISHU_APP_ID=cli_xxx
 FEISHU_APP_SECRET=xxx
-FEISHU_OAUTH_AUTHORIZE_URL=https://open.feishu.cn/open-apis/authen/v1/authorize
-FEISHU_OAUTH_TOKEN_URL=https://open.feishu.cn/open-apis/authen/v1/access_token
-FEISHU_REDIRECT_URI=https://recall-api.example.com/api/auth/callback
 SESSION_SECRET=replace-with-random-secret
+FEISHU_REDIRECT_URI=https://your-netlify-site.netlify.app/api/auth/callback
+FEISHU_OAUTH_SCOPE=auth:user.id:read offline_access bitable:app bitable:app:readonly calendar:calendar calendar:calendar:readonly
+FEISHU_AUTO_PROVISION=true
 ```
 
 The exact Feishu OAuth URLs and scopes should be finalized from the Feishu Open Platform app configuration before production deployment.
@@ -41,6 +41,28 @@ Then add the same redirect URI in Feishu Open Platform:
 
 ```text
 https://<your-backend-domain>/api/auth/callback
+```
+
+## Netlify Deploy
+
+This repo now includes a real Netlify Functions entry at:
+
+```text
+netlify/functions/api.js
+```
+
+Netlify settings:
+
+```text
+Build command: empty
+Publish directory: public
+Functions directory: netlify/functions
+```
+
+The first deploy can be tested with:
+
+```text
+https://<your-netlify-site>/health
 ```
 
 ## Local Commands
@@ -64,10 +86,10 @@ PUBLIC_AUTH_MODE=oauth
 
 ## Production Notes
 
-- Replace the in-memory stores with a real database.
-- Encrypt Feishu refresh/access tokens at rest.
+- Netlify Functions use Netlify Blobs for first-version session/workspace storage.
+- Feishu refresh/access tokens are encrypted at rest with `SESSION_SECRET`.
 - Restrict CORS to the published Chrome extension ID.
 - Add rate limits.
 - Add a privacy policy URL before Chrome Web Store submission.
 - Add Feishu scope review notes and reviewer test account instructions.
-- Implement the Feishu Base provisioning and record-write adapter after confirming the app scopes.
+- Confirm Feishu Base provisioning payload against the approved app scopes in the first real OAuth test.
