@@ -104,8 +104,7 @@ async function startAuth(url, origin) {
     return redirectToExtension(extensionRedirectUri, sessionToken, devWorkspace().baseUrl);
   }
 
-  const state = randomToken(24);
-  await statesStore().setJSON(state, {
+  const state = createOAuthState({
     extensionRedirectUri,
     extensionId: url.searchParams.get("extension_id") || "",
     createdAt: Date.now()
@@ -124,10 +123,15 @@ async function startAuth(url, origin) {
 async function finishAuth(url, origin) {
   assertRequiredEnv(["PUBLIC_BASE_URL", "FEISHU_APP_ID", "FEISHU_APP_SECRET", "SESSION_SECRET"]);
 
+  const oauthError = url.searchParams.get("error") || "";
+  if (oauthError) {
+    const description = url.searchParams.get("error_description") || url.searchParams.get("error_msg") || oauthError;
+    throw httpError(400, `Feishu OAuth rejected the request: ${description}`);
+  }
+
   const code = url.searchParams.get("code") || "";
   const state = url.searchParams.get("state") || "";
-  const stateRecord = await statesStore().get(state, { type: "json" });
-  await statesStore().delete(state);
+  const stateRecord = verifyOAuthState(state);
 
   if (!code || !stateRecord?.extensionRedirectUri) {
     throw httpError(400, "Invalid OAuth callback.");
@@ -462,10 +466,6 @@ function sessionsStore() {
   return getStore({ name: "recall-sessions", consistency: "strong" });
 }
 
-function statesStore() {
-  return getStore({ name: "recall-oauth-states", consistency: "strong" });
-}
-
 function workspacesStore() {
   return getStore({ name: "recall-workspaces", consistency: "strong" });
 }
@@ -503,6 +503,30 @@ function decryptTokenPayload(payload) {
 
 function signReadToken(recordId) {
   return crypto.createHmac("sha256", env("SESSION_SECRET") || "dev").update(recordId).digest("base64url").slice(0, 32);
+}
+
+function createOAuthState(payload) {
+  const body = Buffer.from(JSON.stringify({
+    ...payload,
+    nonce: randomToken(12)
+  }), "utf8").toString("base64url");
+  return `${body}.${signStateBody(body)}`;
+}
+
+function verifyOAuthState(state) {
+  const [body, signature] = String(state || "").split(".");
+  if (!body || !signature || signature !== signStateBody(body)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    if (Date.now() - Number(payload.createdAt || 0) > 10 * 60 * 1000) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function signStateBody(body) {
+  return crypto.createHmac("sha256", env("SESSION_SECRET") || "dev").update(body).digest("base64url").slice(0, 32);
 }
 
 function assertRequiredEnv(keys) {
