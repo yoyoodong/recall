@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Recall</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="popup">
+    <main>
+      <header>
+        <h1>保存到 Recall</h1>
+        <button id="openOptions" class="icon-button" title="设置" type="button">⚙</button>
+      </header>
+
+      <form id="captureForm">
+        <label>
+          标题
+          <input id="title" name="title" type="text" required>
+        </label>
+
+        <label>
+          链接
+          <input id="url" name="url" type="url" required>
+        </label>
+
+        <label>
+          选中摘录
+          <textarea id="selectedText" name="selectedText" rows="3" placeholder="可选：选中网页里的重点再保存"></textarea>
+        </label>
+
+        <div class="grid">
+          <label>
+            标签
+            <input id="tags" name="tags" type="text" placeholder="AI, 产品">
+          </label>
+          <label>
+            重要度
+            <select id="priority" name="priority">
+              <option>普通</option>
+              <option>重要</option>
+              <option>灵感</option>
+              <option>待深读</option>
+            </select>
+          </label>
+        </div>
+
+        <label>
+          提醒时间
+          <input id="remindAt" name="remindAt" type="datetime-local">
+        </label>
+
+        <div class="presets">
+          <button data-preset="tonight" type="button">今晚</button>
+          <button data-preset="tomorrow" type="button">明早</button>
+          <button data-preset="weekend" type="button">周末</button>
+          <button data-preset="none" type="button">不提醒</button>
+        </div>
+
+        <button id="submitButton" class="primary" type="submit">保存到飞书</button>
+      </form>
+
+      <footer>
+        <button id="retryQueue" type="button">重试失败队列</button>
+        <span id="status"></span>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Recall",
+  "description": "一键收藏网页资料到你的飞书多维表格。",
+  "version": "0.3.0",
+  "action": {
+    "default_title": "保存到 Recall"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "notifications",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*/"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/facai-sticker.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

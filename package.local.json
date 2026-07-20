@@ -1,0 +1,13 @@
+{
+  "name": "recall-local-helper",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "server": "node server/index.js",
+    "check": "node --check server/index.js && node --check extension/background.js && node --check extension/popup.js && node --check extension/options.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Recall 设置</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="options">
+    <main>
+      <h1>Recall 设置</h1>
+      <form id="optionsForm">
+        <label>
+          本机 API 地址
+          <input id="apiBaseUrl" name="apiBaseUrl" type="url" placeholder="http://127.0.0.1:8787" required>
+        </label>
+        <label>
+          API Key
+          <input id="apiKey" name="apiKey" type="password" placeholder="可选">
+        </label>
+        <label>
+          飞书资料库链接
+          <input id="baseUrl" name="baseUrl" type="url" placeholder="https://my.feishu.cn/base/...">
+        </label>
+        <button class="primary" type="submit">保存设置</button>
+      </form>
+      <p id="status"></p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

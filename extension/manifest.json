@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Recall",
+  "description": "保存网页资料到飞书，并在你指定的时间回看。",
+  "version": "0.2.1",
+  "action": {
+    "default_title": "保存到 Recall"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "notifications",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/facai-sticker.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

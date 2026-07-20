@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Recall 设置</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="options">
+    <main>
+      <h1>Recall</h1>
+
+      <section class="panel">
+        <div>
+          <h2>飞书连接</h2>
+          <p id="connectionText">检查连接中...</p>
+        </div>
+        <button id="connectButton" class="primary" type="button">连接飞书</button>
+      </section>
+
+      <section class="panel">
+        <div>
+          <h2>资料表</h2>
+          <p id="baseText">连接后自动创建或绑定。</p>
+        </div>
+        <button id="openBaseButton" type="button" disabled>打开表格</button>
+      </section>
+
+      <details class="advanced">
+        <summary>开发设置</summary>
+        <form id="optionsForm">
+          <label>
+            后端地址
+            <input id="apiBaseUrl" name="apiBaseUrl" type="url" placeholder="https://recall-api.example.com" required>
+          </label>
+          <button type="submit">保存</button>
+        </form>
+      </details>
+
+      <p id="status"></p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
