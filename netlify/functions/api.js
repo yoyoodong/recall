@@ -5,7 +5,7 @@ const FEISHU_API_BASE = "https://open.feishu.cn/open-apis";
 const DEFAULT_AUTH_URL = "https://accounts.feishu.cn/open-apis/authen/v1/authorize";
 const DEFAULT_TOKEN_URL = "https://open.feishu.cn/open-apis/authen/v2/oauth/token";
 const DEFAULT_SCOPES = [
-  "auth:user.id:read",
+  "contact:user.id:readonly",
   "offline_access",
   "bitable:app",
   "bitable:app:readonly",
@@ -572,4 +572,3 @@ function withCors(response, origin) {
   headers.set("Access-Control-Allow-Headers", "Authorization,Content-Type");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
-

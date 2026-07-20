@@ -20,7 +20,7 @@ FEISHU_APP_ID=cli_xxx
 FEISHU_APP_SECRET=xxx
 SESSION_SECRET=replace-with-random-secret
 FEISHU_REDIRECT_URI=https://your-netlify-site.netlify.app/api/auth/callback
-FEISHU_OAUTH_SCOPE=auth:user.id:read offline_access bitable:app bitable:app:readonly calendar:calendar calendar:calendar:readonly
+FEISHU_OAUTH_SCOPE=contact:user.id:readonly offline_access bitable:app bitable:app:readonly calendar:calendar calendar:calendar:readonly
 FEISHU_AUTO_PROVISION=true
 ```
 
