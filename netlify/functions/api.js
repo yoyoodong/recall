@@ -15,14 +15,15 @@ const DEFAULT_SCOPES = [
 
 const FIELD_SCHEMA = [
   { key: "title", name: "标题", type: 1 },
+  { key: "screenshot", name: "网页截图", type: 17 },
   { key: "coreContent", name: "核心内容", type: 1 },
   { key: "url", name: "链接", type: 1 },
-  { key: "source", name: "来源", type: 1 },
   { key: "tags", name: "标签", type: 1 },
-  { key: "priority", name: "重要度", type: 1 },
   { key: "status", name: "状态", type: 1 },
   { key: "remindAt", name: "提醒时间", type: 5 },
-  { key: "capturedAt", name: "保存时间", type: 5 }
+  { key: "capturedAt", name: "保存时间", type: 5 },
+  { key: "source", name: "来源", type: 1 },
+  { key: "priority", name: "重要度", type: 1 }
 ];
 
 export default async function handler(req, context) {
@@ -232,30 +233,13 @@ async function provisionFeishuWorkspace(accessToken) {
     throw httpError(502, "Feishu did not return a table_id.");
   }
 
-  const fields = {};
-  for (const field of FIELD_SCHEMA.slice(1)) {
-    try {
-      const created = await feishuFetch(`${FEISHU_API_BASE}/bitable/v1/apps/${encodeURIComponent(appToken)}/tables/${encodeURIComponent(tableId)}/fields`, {
-        method: "POST",
-        accessToken,
-        body: {
-          field_name: field.name,
-          type: field.type,
-          ...(field.property ? { property: field.property } : {})
-        }
-      });
-      fields[field.key] = created.data?.field?.field_id || field.name;
-    } catch (error) {
-      console.error(`Initial field creation failed: ${field.name}: ${error.message}`);
-    }
-  }
-
-  return {
+  const workspace = {
     appToken,
     tableId,
     baseUrl: `${feishuBaseUrl()}/base/${appToken}?table=${tableId}`,
-    fields
+    fields: {}
   };
+  return (await ensureWorkspaceSchema(accessToken, workspace)).workspace;
 }
 
 async function saveCapture(session, capture, requestUrl) {
@@ -348,6 +332,7 @@ async function ensureWorkspaceSchema(accessToken, workspace) {
         changed = true;
       } else if (field.key === "title" && fallbackTextField) {
         fields[field.key] = fallbackTextField.field_id || fallbackTextField.field_name || fallbackTextField.name;
+        await renameBitableField(accessToken, workspace, fallbackTextField, field.name).catch(() => {});
         changed = true;
       } else if (field.key === "coreContent" && fallbackTextField) {
         fields[field.key] = fallbackTextField.field_id || fallbackTextField.field_name || fallbackTextField.name;
@@ -380,6 +365,19 @@ async function createBitableField(accessToken, workspace, field) {
       field_name: field.name,
       type: field.type,
       ...(field.property ? { property: field.property } : {})
+    }
+  });
+}
+
+async function renameBitableField(accessToken, workspace, field, name) {
+  const fieldId = field.field_id;
+  if (!fieldId || (field.field_name || field.name) === name) return null;
+  return feishuFetch(`${FEISHU_API_BASE}/bitable/v1/apps/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/fields/${encodeURIComponent(fieldId)}`, {
+    method: "PUT",
+    accessToken,
+    body: {
+      field_name: name,
+      type: Number(field.type) || 1
     }
   });
 }
