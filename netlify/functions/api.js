@@ -301,12 +301,18 @@ async function ensureWorkspaceSchema(accessToken, workspace) {
   const fields = { ...(workspace.fields || {}) };
   const existing = await listBitableFields(accessToken, workspace).catch(() => []);
   const byName = new Map(existing.map((field) => [field.field_name || field.name, field]).filter(([name]) => name));
+  const byId = new Map(existing.map((field) => [field.field_id, field]).filter(([id]) => id));
   const knownFieldValues = new Set(existing.flatMap((field) => [field.field_id, field.field_name, field.name]).filter(Boolean));
   const fallbackTextField = existing.find((field) => Number(field.type) === 1 || (field.ui_type || "").toLowerCase() === "text");
   const fallbackDateField = existing.find((field) => Number(field.type) === 5 || (field.ui_type || "").toLowerCase() === "date");
   let changed = false;
 
   for (const field of FIELD_SCHEMA) {
+    if (fields[field.key] && byId.has(fields[field.key])) {
+      fields[field.key] = byId.get(fields[field.key]).field_name || byId.get(fields[field.key]).name || field.name;
+      changed = true;
+      continue;
+    }
     if (fields[field.key] && knownFieldValues.has(fields[field.key])) continue;
     if (fields[field.key]) {
       delete fields[field.key];
@@ -314,31 +320,28 @@ async function ensureWorkspaceSchema(accessToken, workspace) {
     }
     const existingField = byName.get(field.name);
     if (existingField) {
-      fields[field.key] = existingField.field_id || field.name;
+      fields[field.key] = existingField.field_name || existingField.name || field.name;
       changed = true;
       continue;
     }
 
     try {
       const created = await createBitableField(accessToken, workspace, field);
-      fields[field.key] = created.data?.field?.field_id || created.data?.field_id || field.name;
+      fields[field.key] = created.data?.field?.field_name || created.data?.field_name || field.name;
       changed = true;
     } catch (error) {
       console.error(`Create field failed: ${field.name}: ${error.message}`);
       const refreshed = await listBitableFields(accessToken, workspace).catch(() => []);
       const duplicate = refreshed.find((item) => (item.field_name || item.name) === field.name);
       if (duplicate) {
-        fields[field.key] = duplicate.field_id || field.name;
+        fields[field.key] = duplicate.field_name || duplicate.name || field.name;
         changed = true;
       } else if (field.key === "title" && fallbackTextField) {
-        fields[field.key] = fallbackTextField.field_id || fallbackTextField.field_name || fallbackTextField.name;
+        fields[field.key] = field.name;
         await renameBitableField(accessToken, workspace, fallbackTextField, field.name).catch(() => {});
         changed = true;
-      } else if (field.key === "coreContent" && fallbackTextField) {
-        fields[field.key] = fallbackTextField.field_id || fallbackTextField.field_name || fallbackTextField.name;
-        changed = true;
       } else if (field.key === "capturedAt" && fallbackDateField) {
-        fields[field.key] = fallbackDateField.field_id || fallbackDateField.field_name || fallbackDateField.name;
+        fields[field.key] = fallbackDateField.field_name || fallbackDateField.name;
         changed = true;
       }
     }
@@ -396,7 +399,7 @@ async function createBitableRecord(accessToken, workspace, capture) {
   }
   setField(fields, knownFieldName("url", workspace), capture.url);
   setField(fields, knownFieldName("source", workspace), capture.source);
-  setField(fields, knownFieldName("tags", workspace), capture.tags.join("、"));
+  setField(fields, knownFieldName("tags", workspace), capture.tags);
   setField(fields, knownFieldName("priority", workspace), capture.priority || "普通");
   setField(fields, knownFieldName("status", workspace), capture.status || "未读");
   setField(fields, knownFieldName("remindAt", workspace), toFeishuDate(capture.remindAt));
