@@ -1,7 +1,10 @@
 const DEFAULT_CONFIG = {
   apiBaseUrl: "https://xrecall.netlify.app",
   sessionToken: "",
-  baseUrl: ""
+  baseUrl: "",
+  aiApiUrl: "",
+  aiModel: "",
+  aiApiKey: ""
 };
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -87,6 +90,7 @@ async function saveFromContext(info, tab) {
 }
 
 async function savePreparedCapture(capture, tab, config) {
+  capture.coreContent = await generateCoreContent(capture, config);
   await attachScreenshot(capture, tab);
   const result = await saveCapture(capture, config);
   if (result.baseUrl && result.baseUrl !== config.baseUrl) {
@@ -329,7 +333,63 @@ async function queueFailedCapture(capture, error) {
 
 async function getConfig() {
   const { config = {} } = await chrome.storage.sync.get("config");
-  return { ...DEFAULT_CONFIG, ...config };
+  const { secretConfig = {} } = await chrome.storage.local.get("secretConfig");
+  return { ...DEFAULT_CONFIG, ...config, ...secretConfig };
+}
+
+async function generateCoreContent(capture, config) {
+  if (!config.aiApiUrl || !config.aiApiKey) return "";
+
+  const text = [
+    capture.title ? `标题：${capture.title}` : "",
+    capture.url ? `链接：${capture.url}` : "",
+    capture.description ? `页面描述：${capture.description}` : "",
+    capture.headings?.length ? `小标题：${capture.headings.join(" / ")}` : "",
+    capture.selectedText ? `选中文本：${capture.selectedText}` : "",
+    capture.pageText ? `正文：${capture.pageText}` : ""
+  ].filter(Boolean).join("\n\n").slice(0, 16000);
+
+  if (!text) return "";
+
+  try {
+    const response = await fetch(config.aiApiUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${config.aiApiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: config.aiModel || "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "你是一个中文阅读助理。请用简洁、专业、可快速扫读的中文总结网页内容。专业名词、人名、产品名可保留英文或中英双语。不要编造网页没有的信息。"
+          },
+          {
+            role: "user",
+            content: [
+              "请根据下面网页内容，输出适合写入飞书表格「核心内容」一列的内容。",
+              "格式：",
+              "精炼摘要：1-2句。",
+              "核心观点：2-4条。",
+              "值得看的点：1-3条。",
+              "启发思考：1-2条。",
+              "如果内容很少，就简短输出，不要硬凑。",
+              "",
+              text
+            ].join("\n")
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 800
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return "";
+    return String(data.choices?.[0]?.message?.content || "").trim().slice(0, 5000);
+  } catch {
+    return "";
+  }
 }
 
 function hostname(url) {

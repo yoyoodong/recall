@@ -1,7 +1,13 @@
 const DEFAULT_CONFIG = {
   apiBaseUrl: "https://xrecall.netlify.app",
   sessionToken: "",
-  baseUrl: ""
+  baseUrl: "",
+  aiApiUrl: "",
+  aiModel: ""
+};
+
+const DEFAULT_SECRET_CONFIG = {
+  aiApiKey: ""
 };
 
 const statusEl = document.querySelector("#status");
@@ -10,13 +16,18 @@ const openBaseButton = document.querySelector("#openBaseButton");
 const connectionText = document.querySelector("#connectionText");
 const baseText = document.querySelector("#baseText");
 const form = document.querySelector("#optionsForm");
+const aiForm = document.querySelector("#aiForm");
 
 init();
 
 async function init() {
   await syncFromCallbackHash();
   const config = await getConfig();
+  const secretConfig = await getSecretConfig();
   document.querySelector("#apiBaseUrl").value = config.apiBaseUrl;
+  document.querySelector("#aiApiUrl").value = config.aiApiUrl;
+  document.querySelector("#aiModel").value = config.aiModel;
+  document.querySelector("#aiApiKey").value = secretConfig.aiApiKey;
   render(config);
 
   connectButton.addEventListener("click", () => connectFeishu(config));
@@ -32,6 +43,22 @@ async function init() {
     };
     await chrome.storage.sync.set({ config: nextConfig });
     statusEl.textContent = "已保存";
+    render(nextConfig);
+  });
+
+  aiForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const nextConfig = {
+      ...(await getConfig()),
+      aiApiUrl: document.querySelector("#aiApiUrl").value.trim(),
+      aiModel: document.querySelector("#aiModel").value.trim()
+    };
+    const nextSecretConfig = {
+      aiApiKey: document.querySelector("#aiApiKey").value.trim()
+    };
+    await chrome.storage.sync.set({ config: nextConfig });
+    await chrome.storage.local.set({ secretConfig: nextSecretConfig });
+    statusEl.textContent = nextConfig.aiApiUrl && nextSecretConfig.aiApiKey ? "提炼设置已保存" : "提炼设置已保存；未填 API Key 时会使用基础摘要";
     render(nextConfig);
   });
 }
@@ -125,4 +152,9 @@ function render(config) {
 async function getConfig() {
   const { config = {} } = await chrome.storage.sync.get("config");
   return { ...DEFAULT_CONFIG, ...config };
+}
+
+async function getSecretConfig() {
+  const { secretConfig = {} } = await chrome.storage.local.get("secretConfig");
+  return { ...DEFAULT_SECRET_CONFIG, ...secretConfig };
 }

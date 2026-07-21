@@ -8,7 +8,13 @@
   </head>
   <body class="options">
     <main>
-      <h1>Recall</h1>
+      <header class="hero">
+        <div class="mark">✓</div>
+        <div>
+          <h1>Recall</h1>
+          <p>点一下，保存网页到你的飞书资料表。</p>
+        </div>
+      </header>
 
       <section class="panel">
         <div>
@@ -26,8 +32,31 @@
         <button id="openBaseButton" type="button" disabled>打开表格</button>
       </section>
 
+      <section class="panel stacked">
+        <div>
+          <h2>内容提炼</h2>
+          <p>可选。填入自己的 OpenAI 兼容 API，收藏时自动生成中文核心内容。</p>
+        </div>
+        <form id="aiForm">
+          <label>
+            API 地址
+            <input id="aiApiUrl" name="aiApiUrl" type="url" placeholder="https://api.openai.com/v1/chat/completions">
+          </label>
+          <label>
+            API Key
+            <input id="aiApiKey" name="aiApiKey" type="password" autocomplete="off" placeholder="sk-...">
+            <span class="help">API Key 只保存在你的 Chrome 浏览器本地，不会上传到 Recall 后端。</span>
+          </label>
+          <label>
+            模型
+            <input id="aiModel" name="aiModel" type="text" placeholder="gpt-4o-mini">
+          </label>
+          <button type="submit">保存提炼设置</button>
+        </form>
+      </section>
+
       <details class="advanced">
-        <summary>开发设置</summary>
+        <summary>高级</summary>
         <form id="optionsForm">
           <label>
             后端地址

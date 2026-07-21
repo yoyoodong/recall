@@ -289,6 +289,20 @@ async function saveCapture(session, capture, requestUrl) {
     throw httpError(409, "Feishu workspace is not ready.");
   }
 
+  const schemaChecked = await ensureWorkspaceSchema(accessToken, workspace);
+  if (schemaChecked.changed) {
+    workspace = schemaChecked.workspace;
+    await sessionsStore().setJSON(session.sessionToken, {
+      ...session,
+      workspace
+    });
+    if (session.user?.id) {
+      await workspacesStore().setJSON(session.user.id, workspace);
+    }
+  } else {
+    workspace = schemaChecked.workspace;
+  }
+
   const record = await createBitableRecord(accessToken, workspace, capture);
   const recordId = getRecordId(record);
   let calendarEventId = "";
@@ -305,11 +319,64 @@ async function saveCapture(session, capture, requestUrl) {
   return { recordId, calendarEventId, baseUrl: workspace.baseUrl || "" };
 }
 
+async function ensureWorkspaceSchema(accessToken, workspace) {
+  const fields = { ...(workspace.fields || {}) };
+  const existing = await listBitableFields(accessToken, workspace).catch(() => []);
+  const byName = new Map(existing.map((field) => [field.field_name || field.name, field]).filter(([name]) => name));
+  let changed = false;
+
+  for (const field of FIELD_SCHEMA) {
+    if (fields[field.key]) continue;
+    const existingField = byName.get(field.name);
+    if (existingField) {
+      fields[field.key] = existingField.field_id || field.name;
+      changed = true;
+      continue;
+    }
+
+    try {
+      const created = await createBitableField(accessToken, workspace, field);
+      fields[field.key] = created.data?.field?.field_id || created.data?.field_id || field.name;
+      changed = true;
+    } catch (error) {
+      if (!String(error.message || "").includes("duplicated")) throw error;
+      const refreshed = await listBitableFields(accessToken, workspace).catch(() => []);
+      const duplicate = refreshed.find((item) => (item.field_name || item.name) === field.name);
+      fields[field.key] = duplicate?.field_id || field.name;
+      changed = true;
+    }
+  }
+
+  return {
+    changed,
+    workspace: { ...workspace, fields }
+  };
+}
+
+async function listBitableFields(accessToken, workspace) {
+  const data = await feishuFetch(`${FEISHU_API_BASE}/bitable/v1/apps/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/fields?page_size=100`, {
+    accessToken
+  });
+  return data.data?.items || data.data?.fields || [];
+}
+
+async function createBitableField(accessToken, workspace, field) {
+  return feishuFetch(`${FEISHU_API_BASE}/bitable/v1/apps/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/fields`, {
+    method: "POST",
+    accessToken,
+    body: {
+      field_name: field.name,
+      type: field.type,
+      ...(field.property ? { property: field.property } : {})
+    }
+  });
+}
+
 async function createBitableRecord(accessToken, workspace, capture) {
   const fields = {
     [fieldName("title", workspace)]: capture.title,
     [fieldName("coreContent", workspace)]: buildCoreContent(capture),
-    [fieldName("url", workspace)]: capture.url,
+    [fieldName("url", workspace)]: linkCell(capture),
     [fieldName("source", workspace)]: capture.source,
     [fieldName("tags", workspace)]: capture.tags,
     [fieldName("priority", workspace)]: capture.priority || "普通",
@@ -458,6 +525,7 @@ function normalizeCapture(capture) {
     selectedText: stringValue(input.selectedText).slice(0, 10000),
     pageText: stringValue(input.pageText).slice(0, 12000),
     description: stringValue(input.description).slice(0, 2000),
+    coreContent: stringValue(input.coreContent).slice(0, 5000),
     headings: Array.isArray(input.headings) ? input.headings.map(stringValue).filter(Boolean).slice(0, 8) : [],
     tags: Array.isArray(input.tags) ? input.tags.map(stringValue).filter(Boolean).slice(0, 5) : [],
     priority: stringValue(input.priority || "普通"),
@@ -477,12 +545,18 @@ function normalizeScreenshot(value) {
 }
 
 function buildCoreContent(capture) {
+  if (capture.coreContent) return trimText(capture.coreContent, 5000);
   const lines = [];
   lines.push(`精炼摘要：${trimText(capture.description || capture.selectedText || capture.title, 260)}`);
   if (capture.headings.length) lines.push(`阅读路径：${capture.headings.map((item) => trimText(item, 80)).join(" / ")}`);
   if (capture.selectedText) lines.push(`关键摘录：${trimText(capture.selectedText, 360)}`);
   lines.push("值得看的点：先扫标题和小节，再判断是否值得深读。");
   return lines.join("\n");
+}
+
+function linkCell(capture) {
+  if (!capture.url) return "";
+  return [{ type: "url", text: trimText(capture.title || capture.url, 120), link: capture.url }];
 }
 
 function fieldName(key, workspace) {
@@ -645,7 +719,7 @@ function withCors(response, origin) {
 
 function htmlError(error) {
   const status = error.status || 500;
-  const title = status >= 500 ? "连接飞书时后端出错" : "连接飞书失败";
+  const title = "连接没有完成";
   const details = [
     error.message || "Server error",
     error.code ? `错误码：${error.code}` : "",
@@ -661,22 +735,25 @@ function htmlError(error) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${escapeHtml(title)}</title>
     <style>
-      body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f8fb;color:#172033}
-      main{width:min(760px,calc(100vw - 40px));background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;box-shadow:0 18px 48px rgba(18,28,45,.08)}
-      h1{margin:0 0 12px;font-size:28px;letter-spacing:0}
-      p{margin:8px 0;color:#4b5565;line-height:1.7}
-      pre{white-space:pre-wrap;word-break:break-word;background:#f3f4f6;border-radius:8px;padding:16px;color:#111827}
-      .hint{margin-top:20px;padding-top:18px;border-top:1px solid #e5e7eb}
+      body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f8fb;color:#141922}
+      main{width:min(620px,calc(100vw - 40px));background:#fff;border:1px solid #e4e7ef;border-radius:14px;padding:34px;box-shadow:0 18px 50px rgba(20,25,34,.08)}
+      .mark{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;color:#fff;background:#4f46e5;font-size:24px;font-weight:800;box-shadow:0 10px 28px rgba(79,70,229,.28)}
+      h1{margin:18px 0 10px;font-size:28px;letter-spacing:0}
+      p{margin:8px 0;color:#596273;line-height:1.7}
+      details{margin-top:18px;border-top:1px solid #e4e7ef;padding-top:16px;color:#596273}
+      summary{cursor:pointer}
+      pre{white-space:pre-wrap;word-break:break-word;background:#f4f5f8;border-radius:10px;padding:14px;color:#283142;font-size:13px}
     </style>
   </head>
   <body>
     <main>
+      <div class="mark">✓</div>
       <h1>${escapeHtml(title)}</h1>
-      <p>这说明飞书已经回调到 Recall 后端，但后端在换取 token、创建资料表或跳回插件时遇到了问题。</p>
-      <pre>${escapedDetails.join("\n") || "未知错误"}</pre>
-      <div class="hint">
-        <p>请回到 Recall 插件设置页，重新点击“连接飞书”。如果仍失败，把这一页的错误信息发给开发者。</p>
-      </div>
+      <p>请回到 Recall 插件设置页，重新点击“连接飞书”。如果仍失败，可以展开错误信息发给开发者。</p>
+      <details>
+        <summary>错误信息</summary>
+        <pre>${escapedDetails.join("\n") || "未知错误"}</pre>
+      </details>
     </main>
   </body>
 </html>`, {
