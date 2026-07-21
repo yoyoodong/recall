@@ -129,9 +129,19 @@ async function saveCapture(capture, config) {
     throw new Error("飞书连接已失效，请重新连接。");
   }
   if (!response.ok || !data.ok) {
-    throw new Error(data.error || `HTTP ${response.status}`);
+    throw new Error(formatApiError(data, response.status));
   }
   return data;
+}
+
+function formatApiError(data, status) {
+  const parts = [];
+  if (data?.error) parts.push(data.error);
+  if (data?.code) parts.push(`code ${data.code}`);
+  if (data?.details?.feishuMsg && data.details.feishuMsg !== data.error) parts.push(data.details.feishuMsg);
+  if (data?.details?.feishuCode && data.details.feishuCode !== data.code) parts.push(`Feishu ${data.details.feishuCode}`);
+  if (data?.details?.requestId) parts.push(`request ${data.details.requestId}`);
+  return parts.filter(Boolean).join(" | ") || `HTTP ${status}`;
 }
 
 function attachScreenshot(capture, tab) {

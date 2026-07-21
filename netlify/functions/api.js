@@ -4,6 +4,7 @@ import { getStore } from "@netlify/blobs";
 const FEISHU_API_BASE = "https://open.feishu.cn/open-apis";
 const DEFAULT_AUTH_URL = "https://accounts.feishu.cn/open-apis/authen/v1/authorize";
 const DEFAULT_TOKEN_URL = "https://open.feishu.cn/open-apis/authen/v2/oauth/token";
+const BASE_API_BASE = `${FEISHU_API_BASE}/base/v3`;
 const DEFAULT_SCOPES = [
   "contact:user.id:readonly",
   "offline_access",
@@ -89,7 +90,8 @@ export default async function handler(req, context) {
     return json({
       ok: false,
       error: error.message || "Server error",
-      code: error.code || undefined
+      code: error.code || undefined,
+      details: publicErrorDetails(error)
     }, error.status || 500, origin);
   }
 }
@@ -354,14 +356,14 @@ async function ensureWorkspaceSchema(accessToken, workspace) {
 }
 
 async function listBitableFields(accessToken, workspace) {
-  const data = await feishuFetch(`${FEISHU_API_BASE}/bitable/v1/apps/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/fields?page_size=100`, {
+  const data = await feishuFetch(`${BASE_API_BASE}/bases/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/fields?page_size=100`, {
     accessToken
   });
   return data.data?.items || data.data?.fields || [];
 }
 
 async function createBitableField(accessToken, workspace, field) {
-  return feishuFetch(`${FEISHU_API_BASE}/bitable/v1/apps/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/fields`, {
+  return feishuFetch(`${BASE_API_BASE}/bases/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/fields`, {
     method: "POST",
     accessToken,
     body: {
@@ -375,7 +377,7 @@ async function createBitableField(accessToken, workspace, field) {
 async function renameBitableField(accessToken, workspace, field, name) {
   const fieldId = field.field_id;
   if (!fieldId || (field.field_name || field.name) === name) return null;
-  return feishuFetch(`${FEISHU_API_BASE}/bitable/v1/apps/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/fields/${encodeURIComponent(fieldId)}`, {
+  return feishuFetch(`${BASE_API_BASE}/bases/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/fields/${encodeURIComponent(fieldId)}`, {
     method: "PUT",
     accessToken,
     body: {
@@ -386,6 +388,32 @@ async function renameBitableField(accessToken, workspace, field, name) {
 }
 
 async function createBitableRecord(accessToken, workspace, capture) {
+  const fields = buildRecordFields(workspace, capture, "full");
+
+  try {
+    return await postBitableRecord(accessToken, workspace, fields);
+  } catch (error) {
+    const minimalFields = buildRecordFields(workspace, capture, "minimal");
+    const retriable = Object.keys(minimalFields).length && JSON.stringify(minimalFields) !== JSON.stringify(fields);
+    if (!retriable) throw error;
+
+    console.error("Full Base record write failed; retrying minimal fields", publicErrorDetails(error));
+    try {
+      const record = await postBitableRecord(accessToken, workspace, minimalFields);
+      return { ...record, recall_partial_write: true };
+    } catch (minimalError) {
+      minimalError.message = `Feishu record write failed: ${minimalError.message}`;
+      minimalError.details = {
+        ...(minimalError.details || {}),
+        fullWrite: publicErrorDetails(error),
+        attemptedFields: Object.keys(minimalFields)
+      };
+      throw minimalError;
+    }
+  }
+}
+
+function buildRecordFields(workspace, capture, mode) {
   const fields = {};
   const coreContent = buildCoreContent(capture);
   const titleField = knownFieldName("title", workspace);
@@ -399,15 +427,20 @@ async function createBitableRecord(accessToken, workspace, capture) {
   }
   setField(fields, knownFieldName("url", workspace), capture.url);
   setField(fields, knownFieldName("source", workspace), capture.source);
-  setField(fields, knownFieldName("tags", workspace), capture.tags);
-  setField(fields, knownFieldName("priority", workspace), capture.priority || "普通");
-  setField(fields, knownFieldName("status", workspace), capture.status || "未读");
   setField(fields, knownFieldName("remindAt", workspace), toFeishuDate(capture.remindAt));
   setField(fields, knownFieldName("capturedAt", workspace), Date.now());
+  if (mode !== "minimal") {
+    setField(fields, knownFieldName("tags", workspace), capture.tags);
+    setField(fields, knownFieldName("priority", workspace), capture.priority || "普通");
+    setField(fields, knownFieldName("status", workspace), capture.status || "未读");
+  }
 
   if (!Object.keys(fields).length) throw httpError(409, "Recall could not find a writable Feishu field.");
+  return fields;
+}
 
-  const data = await feishuFetch(`${FEISHU_API_BASE}/bitable/v1/apps/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/records`, {
+async function postBitableRecord(accessToken, workspace, fields) {
+  const data = await feishuFetch(`${BASE_API_BASE}/bases/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/records`, {
     method: "POST",
     accessToken,
     body: { fields }
@@ -416,8 +449,8 @@ async function createBitableRecord(accessToken, workspace, capture) {
 }
 
 async function updateBitableRecord(accessToken, workspace, recordId, fields) {
-  return feishuFetch(`${FEISHU_API_BASE}/bitable/v1/apps/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/records/${encodeURIComponent(recordId)}`, {
-    method: "PUT",
+  return feishuFetch(`${BASE_API_BASE}/bases/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/records/${encodeURIComponent(recordId)}`, {
+    method: "PATCH",
     accessToken,
     body: { fields }
   });
@@ -731,6 +764,17 @@ function httpError(status, message) {
   const error = new Error(message);
   error.status = status;
   return error;
+}
+
+function publicErrorDetails(error) {
+  const details = error?.details || {};
+  return {
+    feishuCode: details.feishuCode || undefined,
+    feishuMsg: details.feishuMsg || undefined,
+    requestId: details.requestId || undefined,
+    attemptedFields: details.attemptedFields || undefined,
+    fullWrite: details.fullWrite || undefined
+  };
 }
 
 function json(payload, status, origin) {
