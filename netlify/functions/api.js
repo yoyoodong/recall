@@ -153,15 +153,15 @@ async function finishAuth(url, origin) {
 
   const token = await exchangeFeishuCode(code);
   const user = await getFeishuUser(token);
-  const workspace = await ensureUserWorkspace(token, user);
+  const workspace = await workspacesStore().get(user.id, { type: "json" });
   const sessionToken = await createSession({
     user,
     token: encryptTokenPayload(token),
-    workspace,
+    workspace: workspace || null,
     connectedAt: new Date().toISOString()
   });
 
-  return redirectToExtension(stateRecord.extensionRedirectUri, sessionToken, workspace.baseUrl || "");
+  return redirectToExtension(stateRecord.extensionRedirectUri, sessionToken, workspace?.baseUrl || "");
 }
 
 async function exchangeFeishuCode(code) {
@@ -277,7 +277,14 @@ async function saveCapture(session, capture, requestUrl) {
   const accessToken = token.access_token || token.user_access_token;
   if (!accessToken) throw httpError(401, "Feishu session expired. Please reconnect.");
 
-  const workspace = session.workspace;
+  let workspace = session.workspace;
+  if (!workspace?.appToken || !workspace?.tableId) {
+    workspace = await ensureUserWorkspace(token, session.user || {});
+    await sessionsStore().setJSON(session.sessionToken, {
+      ...session,
+      workspace
+    });
+  }
   if (!workspace?.appToken || !workspace?.tableId) {
     throw httpError(409, "Feishu workspace is not ready.");
   }
@@ -388,7 +395,10 @@ async function requireSession(req) {
   if (!match) throw httpError(401, "Missing Recall session.");
   const session = await sessionsStore().get(match[1], { type: "json" });
   if (!session) throw httpError(401, "Invalid or expired Recall session.");
-  return session;
+  return {
+    ...session,
+    sessionToken: match[1]
+  };
 }
 
 function redirectToExtension(extensionRedirectUri, sessionToken, baseUrl) {
