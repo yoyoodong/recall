@@ -15,7 +15,6 @@ const connectButton = document.querySelector("#connectButton");
 const openBaseButton = document.querySelector("#openBaseButton");
 const connectionText = document.querySelector("#connectionText");
 const baseText = document.querySelector("#baseText");
-const form = document.querySelector("#optionsForm");
 const aiForm = document.querySelector("#aiForm");
 
 init();
@@ -24,7 +23,6 @@ async function init() {
   await syncFromCallbackHash();
   const config = await getConfig();
   const secretConfig = await getSecretConfig();
-  document.querySelector("#apiBaseUrl").value = config.apiBaseUrl;
   document.querySelector("#aiApiUrl").value = config.aiApiUrl;
   document.querySelector("#aiModel").value = config.aiModel;
   document.querySelector("#aiApiKey").value = secretConfig.aiApiKey;
@@ -33,17 +31,6 @@ async function init() {
   connectButton.addEventListener("click", () => connectFeishu(config));
   openBaseButton.addEventListener("click", () => {
     if (config.baseUrl) chrome.tabs.create({ url: config.baseUrl });
-  });
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const nextConfig = {
-      ...config,
-      apiBaseUrl: document.querySelector("#apiBaseUrl").value.trim().replace(/\/$/, "")
-    };
-    await chrome.storage.sync.set({ config: nextConfig });
-    statusEl.textContent = "已保存";
-    render(nextConfig);
   });
 
   aiForm.addEventListener("submit", async (event) => {
@@ -58,7 +45,7 @@ async function init() {
     };
     await chrome.storage.sync.set({ config: nextConfig });
     await chrome.storage.local.set({ secretConfig: nextSecretConfig });
-    statusEl.textContent = nextConfig.aiApiUrl && nextSecretConfig.aiApiKey ? "提炼设置已保存" : "提炼设置已保存；未填 API Key 时会使用基础摘要";
+    statusEl.textContent = nextConfig.aiApiUrl && nextSecretConfig.aiApiKey ? "模型设置已保存" : "模型设置已保存；未填 API Key 时会使用基础摘要";
     render(nextConfig);
   });
 }
