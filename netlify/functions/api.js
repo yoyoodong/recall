@@ -5,6 +5,7 @@ const FEISHU_API_BASE = "https://open.feishu.cn/open-apis";
 const DEFAULT_AUTH_URL = "https://accounts.feishu.cn/open-apis/authen/v1/authorize";
 const DEFAULT_TOKEN_URL = "https://open.feishu.cn/open-apis/authen/v2/oauth/token";
 const BASE_API_BASE = `${FEISHU_API_BASE}/base/v3`;
+const SERVICE_VERSION = "0.3.10";
 const DEFAULT_SCOPES = [
   "contact:user.id:readonly",
   "offline_access",
@@ -39,7 +40,7 @@ export default async function handler(req, context) {
     const pathname = url.pathname;
 
     if (req.method === "GET" && pathname === "/health") {
-      return json({ ok: true, service: "recall-public", time: new Date().toISOString() }, 200, origin);
+      return json({ ok: true, service: "recall-public", version: SERVICE_VERSION, time: new Date().toISOString() }, 200, origin);
     }
 
     if (req.method === "GET" && pathname === "/api/auth/start") {
