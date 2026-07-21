@@ -65,16 +65,15 @@ async function saveCurrentTab(tab) {
     return;
   }
 
+  showPageToast(tab?.id);
   let capture = null;
   try {
     const pageInfo = await getPageInfo(tab?.id);
     capture = buildCaptureFromTab(tab, pageInfo);
     const result = await savePreparedCapture(capture, tab, config);
-    showPageToast(tab?.id);
-    notify("已保存到 Recall", result.capture.title || result.capture.url);
+    notify("已保存到 Recall", "在飞书云文档搜索「看了会发财」查看。");
   } catch (error) {
     await queueFailedCapture(capture || buildCaptureFromTab(tab, {}), error);
-    showPageToast(tab?.id, true);
     notify("保存失败", error.message || "请检查飞书连接");
   }
 }
@@ -87,16 +86,15 @@ async function saveFromContext(info, tab) {
     return;
   }
 
+  showPageToast(tab?.id);
   let capture = null;
   try {
     const pageInfo = await getPageInfo(tab?.id);
     capture = buildCaptureFromContext(info, tab, pageInfo);
     const result = await savePreparedCapture(capture, tab, config);
-    showPageToast(tab?.id);
-    notify("已保存到 Recall", result.capture.title || result.capture.url);
+    notify("已保存到 Recall", "在飞书云文档搜索「看了会发财」查看。");
   } catch (error) {
     await queueFailedCapture(capture || buildCaptureFromContext(info, tab, {}), error);
-    showPageToast(tab?.id, true);
     notify("保存失败", error.message || "请检查飞书连接");
   }
 }

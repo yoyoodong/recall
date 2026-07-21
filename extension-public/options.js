@@ -18,6 +18,7 @@ const aiForm = document.querySelector("#aiForm");
 const aiProvider = document.querySelector("#aiProvider");
 const customApiUrlLabel = document.querySelector("#customApiUrlLabel");
 const startButton = document.querySelector("#startButton");
+const openBaseButton = document.querySelector("#openBaseButton");
 
 init();
 
@@ -34,6 +35,10 @@ async function init() {
   connectButton.addEventListener("click", connectFeishu);
   aiProvider.addEventListener("change", toggleCustomApiUrl);
   startButton.addEventListener("click", () => window.close());
+  openBaseButton.addEventListener("click", async () => {
+    const latestConfig = await getConfig();
+    if (latestConfig.baseUrl) chrome.tabs.create({ url: latestConfig.baseUrl });
+  });
 
   aiForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -131,6 +136,7 @@ function launchWebAuthFlow(url) {
 
 function render(config) {
   document.body.classList.toggle("connected", Boolean(config.sessionToken));
+  openBaseButton.hidden = !config.baseUrl;
   if (config.sessionToken) {
     connectionText.textContent = "已连接飞书";
     connectButton.textContent = "重新连接";
