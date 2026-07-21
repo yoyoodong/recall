@@ -38,11 +38,20 @@ async function init() {
 
 async function connectFeishu(config) {
   statusEl.textContent = "正在打开飞书授权...";
-  const redirectUri = chrome.runtime.getURL("options.html");
+  const redirectUri = chrome.identity.getRedirectURL("oauth");
   const url = new URL(`${config.apiBaseUrl}/api/auth/start`);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("extension_id", chrome.runtime.id);
-  chrome.tabs.update({ url: url.toString() });
+
+  try {
+    const callbackUrl = await launchWebAuthFlow(url.toString());
+    await applyCallbackUrl(callbackUrl);
+    const nextConfig = await getConfig();
+    statusEl.textContent = "已连接飞书";
+    render(nextConfig);
+  } catch (error) {
+    statusEl.textContent = error.message || "连接飞书失败";
+  }
 }
 
 async function syncFromCallbackHash() {
@@ -58,6 +67,41 @@ async function syncFromCallbackHash() {
   };
   await chrome.storage.sync.set({ config: nextConfig });
   history.replaceState(null, "", location.pathname);
+}
+
+async function applyCallbackUrl(callbackUrl) {
+  const parsed = new URL(callbackUrl);
+  const hash = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+  const token = hash.get("recall_token");
+  if (!token) throw new Error("飞书授权完成，但没有拿到 Recall token。");
+
+  const config = await getConfig();
+  await chrome.storage.sync.set({
+    config: {
+      ...config,
+      sessionToken: token,
+      baseUrl: hash.get("base_url") || config.baseUrl
+    }
+  });
+}
+
+function launchWebAuthFlow(url) {
+  return new Promise((resolve, reject) => {
+    chrome.identity.launchWebAuthFlow({
+      url,
+      interactive: true
+    }, (callbackUrl) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message || "飞书授权被取消。"));
+        return;
+      }
+      if (!callbackUrl) {
+        reject(new Error("飞书授权没有返回结果。"));
+        return;
+      }
+      resolve(callbackUrl);
+    });
+  });
 }
 
 function render(config) {

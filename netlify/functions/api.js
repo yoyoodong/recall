@@ -104,7 +104,7 @@ async function startAuth(url, origin) {
   assertRequiredEnv(["PUBLIC_BASE_URL", "FEISHU_APP_ID", "FEISHU_APP_SECRET", "SESSION_SECRET"]);
 
   const extensionRedirectUri = url.searchParams.get("redirect_uri") || "";
-  if (!extensionRedirectUri.startsWith("chrome-extension://")) {
+  if (!isAllowedExtensionRedirect(extensionRedirectUri)) {
     throw httpError(400, "Invalid extension redirect URI.");
   }
 
@@ -414,6 +414,16 @@ function redirectToExtension(extensionRedirectUri, sessionToken, baseUrl) {
       "Cache-Control": "no-store"
     }
   });
+}
+
+function isAllowedExtensionRedirect(value) {
+  if (value.startsWith("chrome-extension://")) return true;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && /^[a-z]{32}\.chromiumapp\.org$/.test(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 async function feishuFetch(url, options = {}) {
