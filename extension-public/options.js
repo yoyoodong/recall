@@ -2,6 +2,7 @@ const DEFAULT_CONFIG = {
   apiBaseUrl: "https://xrecall.netlify.app",
   sessionToken: "",
   baseUrl: "",
+  aiProvider: "openai",
   aiApiUrl: "https://api.openai.com/v1/chat/completions",
   aiModel: ""
 };
@@ -14,6 +15,8 @@ const statusEl = document.querySelector("#status");
 const connectButton = document.querySelector("#connectButton");
 const connectionText = document.querySelector("#connectionText");
 const aiForm = document.querySelector("#aiForm");
+const aiProvider = document.querySelector("#aiProvider");
+const customApiUrlLabel = document.querySelector("#customApiUrlLabel");
 
 init();
 
@@ -21,17 +24,23 @@ async function init() {
   await syncFromCallbackHash();
   const config = await getConfig();
   const secretConfig = await getSecretConfig();
+  aiProvider.value = config.aiProvider || "openai";
+  document.querySelector("#aiApiUrl").value = config.aiApiUrl;
   document.querySelector("#aiModel").value = config.aiModel;
   document.querySelector("#aiApiKey").value = secretConfig.aiApiKey;
+  toggleCustomApiUrl();
   render(config);
 
   connectButton.addEventListener("click", () => connectFeishu(config));
+  aiProvider.addEventListener("change", toggleCustomApiUrl);
 
   aiForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const provider = aiProvider.value;
     const nextConfig = {
       ...(await getConfig()),
-      aiApiUrl: DEFAULT_CONFIG.aiApiUrl,
+      aiProvider: provider,
+      aiApiUrl: provider === "custom" ? document.querySelector("#aiApiUrl").value.trim() : "",
       aiModel: document.querySelector("#aiModel").value.trim()
     };
     const nextSecretConfig = {
@@ -42,6 +51,10 @@ async function init() {
     statusEl.textContent = nextSecretConfig.aiApiKey ? "模型设置已保存" : "模型设置已保存；未填 API Key 时会使用基础摘要";
     render(nextConfig);
   });
+}
+
+function toggleCustomApiUrl() {
+  customApiUrlLabel.hidden = aiProvider.value !== "custom";
 }
 
 async function connectFeishu(config) {

@@ -2,9 +2,20 @@ const DEFAULT_CONFIG = {
   apiBaseUrl: "https://xrecall.netlify.app",
   sessionToken: "",
   baseUrl: "",
+  aiProvider: "openai",
   aiApiUrl: "https://api.openai.com/v1/chat/completions",
   aiModel: "",
   aiApiKey: ""
+};
+
+const AI_PROVIDER_ENDPOINTS = {
+  openai: "https://api.openai.com/v1/chat/completions",
+  deepseek: "https://api.deepseek.com/chat/completions",
+  qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+  kimi: "https://api.moonshot.ai/v1/chat/completions",
+  zhipu: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+  openrouter: "https://openrouter.ai/api/v1/chat/completions",
+  siliconflow: "https://api.siliconflow.cn/v1/chat/completions"
 };
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -13,11 +24,6 @@ chrome.runtime.onInstalled.addListener(() => {
       id: "save-to-recall",
       title: "保存到 Recall",
       contexts: ["page", "selection", "link"]
-    });
-    chrome.contextMenus.create({
-      id: "open-recall-base",
-      title: "打开 Recall 资料表",
-      contexts: ["action"]
     });
     chrome.contextMenus.create({
       id: "open-recall-options",
@@ -34,10 +40,6 @@ chrome.action.onClicked.addListener((tab) => {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "open-recall-options") {
     chrome.runtime.openOptionsPage();
-    return;
-  }
-  if (info.menuItemId === "open-recall-base") {
-    openBase();
     return;
   }
   if (info.menuItemId === "save-to-recall") {
@@ -243,15 +245,6 @@ function defaultTomorrowMorning() {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-async function openBase() {
-  const config = await getConfig();
-  if (config.baseUrl) {
-    chrome.tabs.create({ url: config.baseUrl });
-  } else {
-    openConnectPage();
-  }
-}
-
 function openConnectPage() {
   chrome.runtime.openOptionsPage();
 }
@@ -338,7 +331,8 @@ async function getConfig() {
 }
 
 async function generateCoreContent(capture, config) {
-  if (!config.aiApiUrl || !config.aiApiKey) return "";
+  const aiApiUrl = resolveAiApiUrl(config);
+  if (!aiApiUrl || !config.aiApiKey) return "";
 
   const text = [
     capture.title ? `标题：${capture.title}` : "",
@@ -352,7 +346,7 @@ async function generateCoreContent(capture, config) {
   if (!text) return "";
 
   try {
-    const response = await fetch(config.aiApiUrl, {
+    const response = await fetch(aiApiUrl, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${config.aiApiKey}`,
@@ -390,6 +384,11 @@ async function generateCoreContent(capture, config) {
   } catch {
     return "";
   }
+}
+
+function resolveAiApiUrl(config) {
+  if (config.aiProvider === "custom") return config.aiApiUrl || "";
+  return AI_PROVIDER_ENDPOINTS[config.aiProvider || "openai"] || AI_PROVIDER_ENDPOINTS.openai;
 }
 
 function hostname(url) {

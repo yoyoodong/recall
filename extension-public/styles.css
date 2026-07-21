@@ -108,7 +108,8 @@ label {
   line-height: 1.5;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 36px;
   border: 1px solid var(--line);
@@ -117,6 +118,10 @@ input {
   color: var(--ink);
   background: #fff;
   font: inherit;
+}
+
+[hidden] {
+  display: none;
 }
 
 button {

@@ -16,14 +16,6 @@
         </div>
       </header>
 
-      <section class="panel">
-        <div>
-          <h2>飞书连接</h2>
-          <p id="connectionText">检查连接中...</p>
-        </div>
-        <button id="connectButton" class="primary" type="button">连接飞书</button>
-      </section>
-
       <details class="advanced" open>
         <summary>模型设置</summary>
         <form id="aiForm">
@@ -36,9 +28,34 @@
             模型
             <input id="aiModel" name="aiModel" type="text" placeholder="gpt-4o-mini">
           </label>
+          <label>
+            服务商
+            <select id="aiProvider" name="aiProvider">
+              <option value="openai">OpenAI</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="qwen">通义千问</option>
+              <option value="kimi">Kimi</option>
+              <option value="zhipu">智谱 GLM</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="siliconflow">硅基流动</option>
+              <option value="custom">自定义兼容接口</option>
+            </select>
+          </label>
+          <label id="customApiUrlLabel" hidden>
+            兼容接口
+            <input id="aiApiUrl" name="aiApiUrl" type="url" placeholder="https://.../chat/completions">
+          </label>
           <button type="submit">保存模型设置</button>
         </form>
       </details>
+
+      <section class="panel">
+        <div>
+          <h2>飞书连接</h2>
+          <p id="connectionText">检查连接中...</p>
+        </div>
+        <button id="connectButton" class="primary" type="button">连接飞书</button>
+      </section>
 
       <p id="status"></p>
     </main>
