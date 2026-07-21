@@ -16,45 +16,49 @@
         </div>
       </header>
 
-      <details class="advanced" open>
-        <summary>模型设置</summary>
-        <form id="aiForm">
-          <label>
-            API Key
-            <input id="aiApiKey" name="aiApiKey" type="password" autocomplete="off" placeholder="sk-...">
-            <span class="help">只保存在你的 Chrome 浏览器本地，不上传 Recall 后端。</span>
-          </label>
-          <label>
-            模型
-            <input id="aiModel" name="aiModel" type="text" placeholder="gpt-4o-mini">
-          </label>
-          <label>
-            服务商
-            <select id="aiProvider" name="aiProvider">
-              <option value="openai">OpenAI</option>
-              <option value="deepseek">DeepSeek</option>
-              <option value="qwen">通义千问</option>
-              <option value="kimi">Kimi</option>
-              <option value="zhipu">智谱 GLM</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="siliconflow">硅基流动</option>
-              <option value="custom">自定义兼容接口</option>
-            </select>
-          </label>
-          <label id="customApiUrlLabel" hidden>
-            兼容接口
-            <input id="aiApiUrl" name="aiApiUrl" type="url" placeholder="https://.../chat/completions">
-          </label>
-          <button type="submit">保存模型设置</button>
-        </form>
-      </details>
+      <div class="setup-content">
+        <details class="advanced" open>
+          <summary>模型设置</summary>
+          <form id="aiForm">
+            <label>
+              API Key
+              <input id="aiApiKey" name="aiApiKey" type="password" autocomplete="off" placeholder="sk-...">
+              <span class="help">只保存在你的 Chrome 浏览器本地，不上传 Recall 后端。</span>
+            </label>
+            <label>
+              服务商
+              <select id="aiProvider" name="aiProvider">
+                <option value="openai">OpenAI</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="qwen">通义千问</option>
+                <option value="kimi">Kimi</option>
+                <option value="zhipu">智谱 GLM</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="siliconflow">硅基流动</option>
+                <option value="custom">自定义兼容接口</option>
+              </select>
+            </label>
+            <label id="customApiUrlLabel" hidden>
+              兼容接口
+              <input id="aiApiUrl" name="aiApiUrl" type="url" placeholder="https://.../chat/completions">
+            </label>
+            <button type="submit">保存模型设置</button>
+          </form>
+        </details>
 
-      <section class="panel">
-        <div>
-          <h2>飞书连接</h2>
-          <p id="connectionText">检查连接中...</p>
-        </div>
-        <button id="connectButton" class="primary" type="button">连接飞书</button>
+        <section class="panel">
+          <div>
+            <h2>飞书连接</h2>
+            <p id="connectionText">检查连接中...</p>
+          </div>
+          <button id="connectButton" class="primary" type="button">连接飞书</button>
+        </section>
+      </div>
+
+      <section class="success-content">
+        <h2>连接成功</h2>
+        <p>现在去任意网页，点击 Recall 图标即可保存。</p>
+        <button id="startButton" class="primary" type="button">立即开始体验</button>
       </section>
 
       <p id="status"></p>

@@ -18,6 +18,16 @@ const AI_PROVIDER_ENDPOINTS = {
   siliconflow: "https://api.siliconflow.cn/v1/chat/completions"
 };
 
+const AI_PROVIDER_MODELS = {
+  openai: "gpt-4o-mini",
+  deepseek: "deepseek-chat",
+  qwen: "qwen-plus",
+  kimi: "kimi-k2.6",
+  zhipu: "glm-4-flash",
+  openrouter: "openai/gpt-4o-mini",
+  siliconflow: "Qwen/Qwen2.5-7B-Instruct"
+};
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
@@ -353,7 +363,7 @@ async function generateCoreContent(capture, config) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: config.aiModel || "gpt-4o-mini",
+        model: resolveAiModel(config),
         messages: [
           {
             role: "system",
@@ -389,6 +399,10 @@ async function generateCoreContent(capture, config) {
 function resolveAiApiUrl(config) {
   if (config.aiProvider === "custom") return config.aiApiUrl || "";
   return AI_PROVIDER_ENDPOINTS[config.aiProvider || "openai"] || AI_PROVIDER_ENDPOINTS.openai;
+}
+
+function resolveAiModel(config) {
+  return config.aiModel || AI_PROVIDER_MODELS[config.aiProvider || "openai"] || AI_PROVIDER_MODELS.openai;
 }
 
 function hostname(url) {

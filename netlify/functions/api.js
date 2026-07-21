@@ -15,16 +15,14 @@ const DEFAULT_SCOPES = [
 
 const FIELD_SCHEMA = [
   { key: "title", name: "标题", type: 1 },
-  { key: "screenshot", name: "网页截图", type: 17 },
   { key: "coreContent", name: "核心内容", type: 1 },
-  { key: "url", name: "链接", type: 15 },
+  { key: "url", name: "链接", type: 1 },
   { key: "source", name: "来源", type: 1 },
-  { key: "tags", name: "标签", type: 4, property: { options: [] } },
-  { key: "priority", name: "重要度", type: 3, property: { options: [{ name: "普通" }, { name: "重要" }] } },
-  { key: "status", name: "状态", type: 3, property: { options: [{ name: "未读" }, { name: "已读" }] } },
+  { key: "tags", name: "标签", type: 1 },
+  { key: "priority", name: "重要度", type: 1 },
+  { key: "status", name: "状态", type: 1 },
   { key: "remindAt", name: "提醒时间", type: 5 },
-  { key: "capturedAt", name: "保存时间", type: 5 },
-  { key: "calendarEventId", name: "日历事件ID", type: 1 }
+  { key: "capturedAt", name: "保存时间", type: 5 }
 ];
 
 export default async function handler(req, context) {
@@ -248,8 +246,7 @@ async function provisionFeishuWorkspace(accessToken) {
       });
       fields[field.key] = created.data?.field?.field_id || field.name;
     } catch (error) {
-      if (!String(error.message || "").includes("duplicated")) throw error;
-      fields[field.key] = field.name;
+      console.error(`Initial field creation failed: ${field.name}: ${error.message}`);
     }
   }
 
@@ -311,9 +308,6 @@ async function saveCapture(session, capture, requestUrl) {
       console.error(`Calendar reminder failed: ${error.message}`);
       return "";
     });
-    if (calendarEventId) {
-      await updateBitableRecord(accessToken, workspace, recordId, { [fieldName("calendarEventId", workspace)]: calendarEventId }).catch(() => {});
-    }
   }
 
   return { recordId, calendarEventId, baseUrl: workspace.baseUrl || "" };
@@ -323,10 +317,17 @@ async function ensureWorkspaceSchema(accessToken, workspace) {
   const fields = { ...(workspace.fields || {}) };
   const existing = await listBitableFields(accessToken, workspace).catch(() => []);
   const byName = new Map(existing.map((field) => [field.field_name || field.name, field]).filter(([name]) => name));
+  const knownFieldValues = new Set(existing.flatMap((field) => [field.field_id, field.field_name, field.name]).filter(Boolean));
+  const fallbackTextField = existing.find((field) => Number(field.type) === 1 || (field.ui_type || "").toLowerCase() === "text");
+  const fallbackDateField = existing.find((field) => Number(field.type) === 5 || (field.ui_type || "").toLowerCase() === "date");
   let changed = false;
 
   for (const field of FIELD_SCHEMA) {
-    if (fields[field.key]) continue;
+    if (fields[field.key] && knownFieldValues.has(fields[field.key])) continue;
+    if (fields[field.key]) {
+      delete fields[field.key];
+      changed = true;
+    }
     const existingField = byName.get(field.name);
     if (existingField) {
       fields[field.key] = existingField.field_id || field.name;
@@ -339,11 +340,22 @@ async function ensureWorkspaceSchema(accessToken, workspace) {
       fields[field.key] = created.data?.field?.field_id || created.data?.field_id || field.name;
       changed = true;
     } catch (error) {
-      if (!String(error.message || "").includes("duplicated")) throw error;
+      console.error(`Create field failed: ${field.name}: ${error.message}`);
       const refreshed = await listBitableFields(accessToken, workspace).catch(() => []);
       const duplicate = refreshed.find((item) => (item.field_name || item.name) === field.name);
-      fields[field.key] = duplicate?.field_id || field.name;
-      changed = true;
+      if (duplicate) {
+        fields[field.key] = duplicate.field_id || field.name;
+        changed = true;
+      } else if (field.key === "title" && fallbackTextField) {
+        fields[field.key] = fallbackTextField.field_id || fallbackTextField.field_name || fallbackTextField.name;
+        changed = true;
+      } else if (field.key === "coreContent" && fallbackTextField) {
+        fields[field.key] = fallbackTextField.field_id || fallbackTextField.field_name || fallbackTextField.name;
+        changed = true;
+      } else if (field.key === "capturedAt" && fallbackDateField) {
+        fields[field.key] = fallbackDateField.field_id || fallbackDateField.field_name || fallbackDateField.name;
+        changed = true;
+      }
     }
   }
 
@@ -373,20 +385,26 @@ async function createBitableField(accessToken, workspace, field) {
 }
 
 async function createBitableRecord(accessToken, workspace, capture) {
-  const fields = {
-    [fieldName("title", workspace)]: capture.title,
-    [fieldName("coreContent", workspace)]: buildCoreContent(capture),
-    [fieldName("url", workspace)]: linkCell(capture),
-    [fieldName("source", workspace)]: capture.source,
-    [fieldName("tags", workspace)]: capture.tags,
-    [fieldName("priority", workspace)]: capture.priority || "普通",
-    [fieldName("status", workspace)]: capture.status || "未读",
-    [fieldName("remindAt", workspace)]: toFeishuDate(capture.remindAt),
-    [fieldName("capturedAt", workspace)]: Date.now()
-  };
-  for (const [key, value] of Object.entries(fields)) {
-    if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) delete fields[key];
+  const fields = {};
+  const coreContent = buildCoreContent(capture);
+  const titleField = knownFieldName("title", workspace);
+  const coreField = knownFieldName("coreContent", workspace);
+
+  if (titleField && coreField && titleField === coreField) {
+    setField(fields, titleField, combinedCaptureText(capture, coreContent));
+  } else {
+    setField(fields, titleField, capture.title);
+    setField(fields, coreField, coreContent);
   }
+  setField(fields, knownFieldName("url", workspace), capture.url);
+  setField(fields, knownFieldName("source", workspace), capture.source);
+  setField(fields, knownFieldName("tags", workspace), capture.tags.join("、"));
+  setField(fields, knownFieldName("priority", workspace), capture.priority || "普通");
+  setField(fields, knownFieldName("status", workspace), capture.status || "未读");
+  setField(fields, knownFieldName("remindAt", workspace), toFeishuDate(capture.remindAt));
+  setField(fields, knownFieldName("capturedAt", workspace), Date.now());
+
+  if (!Object.keys(fields).length) throw httpError(409, "Recall could not find a writable Feishu field.");
 
   const data = await feishuFetch(`${FEISHU_API_BASE}/bitable/v1/apps/${encodeURIComponent(workspace.appToken)}/tables/${encodeURIComponent(workspace.tableId)}/records`, {
     method: "POST",
@@ -554,13 +572,25 @@ function buildCoreContent(capture) {
   return lines.join("\n");
 }
 
-function linkCell(capture) {
-  if (!capture.url) return "";
-  return [{ type: "url", text: trimText(capture.title || capture.url, 120), link: capture.url }];
-}
-
 function fieldName(key, workspace) {
   return workspace.fields?.[key] || FIELD_SCHEMA.find((field) => field.key === key)?.name || key;
+}
+
+function knownFieldName(key, workspace) {
+  return workspace.fields?.[key] || "";
+}
+
+function setField(fields, key, value) {
+  if (!key || value == null || value === "" || (Array.isArray(value) && value.length === 0)) return;
+  fields[key] = value;
+}
+
+function combinedCaptureText(capture, coreContent) {
+  return [
+    capture.title,
+    capture.url,
+    coreContent
+  ].filter(Boolean).join("\n\n").slice(0, 5000);
 }
 
 function manualWorkspace() {

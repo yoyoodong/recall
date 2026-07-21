@@ -91,6 +91,29 @@ summary,
   border-top: 1px solid var(--line);
 }
 
+.success-content {
+  display: none;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.success-content h2 {
+  margin-bottom: 8px;
+  font-size: 20px;
+}
+
+.success-content button {
+  margin-top: 16px;
+}
+
+.connected .setup-content {
+  display: none;
+}
+
+.connected .success-content {
+  display: block;
+}
+
 form {
   display: grid;
   gap: 10px;

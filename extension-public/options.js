@@ -17,6 +17,7 @@ const connectionText = document.querySelector("#connectionText");
 const aiForm = document.querySelector("#aiForm");
 const aiProvider = document.querySelector("#aiProvider");
 const customApiUrlLabel = document.querySelector("#customApiUrlLabel");
+const startButton = document.querySelector("#startButton");
 
 init();
 
@@ -26,13 +27,13 @@ async function init() {
   const secretConfig = await getSecretConfig();
   aiProvider.value = config.aiProvider || "openai";
   document.querySelector("#aiApiUrl").value = config.aiApiUrl;
-  document.querySelector("#aiModel").value = config.aiModel;
   document.querySelector("#aiApiKey").value = secretConfig.aiApiKey;
   toggleCustomApiUrl();
   render(config);
 
-  connectButton.addEventListener("click", () => connectFeishu(config));
+  connectButton.addEventListener("click", connectFeishu);
   aiProvider.addEventListener("change", toggleCustomApiUrl);
+  startButton.addEventListener("click", () => window.close());
 
   aiForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -41,7 +42,7 @@ async function init() {
       ...(await getConfig()),
       aiProvider: provider,
       aiApiUrl: provider === "custom" ? document.querySelector("#aiApiUrl").value.trim() : "",
-      aiModel: document.querySelector("#aiModel").value.trim()
+      aiModel: ""
     };
     const nextSecretConfig = {
       aiApiKey: document.querySelector("#aiApiKey").value.trim()
@@ -57,8 +58,10 @@ function toggleCustomApiUrl() {
   customApiUrlLabel.hidden = aiProvider.value !== "custom";
 }
 
-async function connectFeishu(config) {
+async function connectFeishu() {
+  const config = await getConfig();
   statusEl.textContent = "正在打开飞书授权...";
+  connectButton.textContent = "正在连接...";
   const redirectUri = chrome.identity.getRedirectURL("oauth");
   const url = new URL(`${config.apiBaseUrl}/api/auth/start`);
   url.searchParams.set("redirect_uri", redirectUri);
@@ -68,10 +71,11 @@ async function connectFeishu(config) {
     const callbackUrl = await launchWebAuthFlow(url.toString());
     await applyCallbackUrl(callbackUrl);
     const nextConfig = await getConfig();
-    statusEl.textContent = "已连接飞书";
+    statusEl.textContent = "";
     render(nextConfig);
   } catch (error) {
     statusEl.textContent = error.message || "连接飞书失败";
+    connectButton.textContent = "继续尝试连接";
   }
 }
 
@@ -126,6 +130,7 @@ function launchWebAuthFlow(url) {
 }
 
 function render(config) {
+  document.body.classList.toggle("connected", Boolean(config.sessionToken));
   if (config.sessionToken) {
     connectionText.textContent = "已连接飞书";
     connectButton.textContent = "重新连接";
