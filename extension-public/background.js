@@ -2,7 +2,7 @@ const DEFAULT_CONFIG = {
   apiBaseUrl: "https://xrecall.netlify.app",
   sessionToken: "",
   baseUrl: "",
-  aiApiUrl: "",
+  aiApiUrl: "https://api.openai.com/v1/chat/completions",
   aiModel: "",
   aiApiKey: ""
 };

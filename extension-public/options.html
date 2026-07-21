@@ -12,7 +12,7 @@
         <div class="mark">✓</div>
         <div>
           <h1>Recall</h1>
-          <p>点一下，保存网页到你的飞书资料表。</p>
+          <p>点一下，保存网页到你的飞书。</p>
         </div>
       </header>
 
@@ -24,21 +24,9 @@
         <button id="connectButton" class="primary" type="button">连接飞书</button>
       </section>
 
-      <section class="panel">
-        <div>
-          <h2>资料表</h2>
-          <p id="baseText">连接后自动创建或绑定。</p>
-        </div>
-        <button id="openBaseButton" type="button" disabled>打开表格</button>
-      </section>
-
       <details class="advanced" open>
         <summary>模型设置</summary>
         <form id="aiForm">
-          <label>
-            API 地址
-            <input id="aiApiUrl" name="aiApiUrl" type="url" placeholder="https://api.openai.com/v1/chat/completions">
-          </label>
           <label>
             API Key
             <input id="aiApiKey" name="aiApiKey" type="password" autocomplete="off" placeholder="sk-...">

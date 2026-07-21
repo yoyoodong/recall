@@ -2,7 +2,7 @@ const DEFAULT_CONFIG = {
   apiBaseUrl: "https://xrecall.netlify.app",
   sessionToken: "",
   baseUrl: "",
-  aiApiUrl: "",
+  aiApiUrl: "https://api.openai.com/v1/chat/completions",
   aiModel: ""
 };
 
@@ -12,9 +12,7 @@ const DEFAULT_SECRET_CONFIG = {
 
 const statusEl = document.querySelector("#status");
 const connectButton = document.querySelector("#connectButton");
-const openBaseButton = document.querySelector("#openBaseButton");
 const connectionText = document.querySelector("#connectionText");
-const baseText = document.querySelector("#baseText");
 const aiForm = document.querySelector("#aiForm");
 
 init();
@@ -23,21 +21,17 @@ async function init() {
   await syncFromCallbackHash();
   const config = await getConfig();
   const secretConfig = await getSecretConfig();
-  document.querySelector("#aiApiUrl").value = config.aiApiUrl;
   document.querySelector("#aiModel").value = config.aiModel;
   document.querySelector("#aiApiKey").value = secretConfig.aiApiKey;
   render(config);
 
   connectButton.addEventListener("click", () => connectFeishu(config));
-  openBaseButton.addEventListener("click", () => {
-    if (config.baseUrl) chrome.tabs.create({ url: config.baseUrl });
-  });
 
   aiForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const nextConfig = {
       ...(await getConfig()),
-      aiApiUrl: document.querySelector("#aiApiUrl").value.trim(),
+      aiApiUrl: DEFAULT_CONFIG.aiApiUrl,
       aiModel: document.querySelector("#aiModel").value.trim()
     };
     const nextSecretConfig = {
@@ -45,7 +39,7 @@ async function init() {
     };
     await chrome.storage.sync.set({ config: nextConfig });
     await chrome.storage.local.set({ secretConfig: nextSecretConfig });
-    statusEl.textContent = nextConfig.aiApiUrl && nextSecretConfig.aiApiKey ? "模型设置已保存" : "模型设置已保存；未填 API Key 时会使用基础摘要";
+    statusEl.textContent = nextSecretConfig.aiApiKey ? "模型设置已保存" : "模型设置已保存；未填 API Key 时会使用基础摘要";
     render(nextConfig);
   });
 }
@@ -125,14 +119,6 @@ function render(config) {
   } else {
     connectionText.textContent = "点击一次连接飞书，授权后即可一键收藏。";
     connectButton.textContent = "连接飞书";
-  }
-
-  if (config.baseUrl) {
-    baseText.textContent = config.baseUrl;
-    openBaseButton.disabled = false;
-  } else {
-    baseText.textContent = "连接后自动创建或绑定。";
-    openBaseButton.disabled = true;
   }
 }
 

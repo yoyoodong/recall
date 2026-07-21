@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Recall",
   "description": "一键收藏网页资料到你的飞书多维表格。",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "action": {
     "default_title": "保存到 Recall"
   },
